@@ -23,8 +23,17 @@ export default function CartScreen() {
 
   /* 📱 CELULAR (solo números) */
   const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
 
-  const handleSaveOrder = () => {
+  /* 📝 DESCRIPCIÓN (Opcional) */
+  const [description, setDescription] = useState("");
+  const [showDescription, setShowDescription] = useState(false);
+
+  /*  PAGO */
+  const [payment, setPayment] = useState("");
+
+  const handleSaveOrder = async () => {
     if (!phone.trim()) {
       Alert.alert("Atención", "El campo de celular es obligatorio.");
       return;
@@ -33,13 +42,71 @@ export default function CartScreen() {
       Alert.alert("Atención", "El celular debe tener exactamente 10 dígitos.");
       return;
     }
-    Alert.alert("Éxito", "Pedido validado correctamente.");
+    if (!name.trim()) {
+      Alert.alert("Atención", "El nombre es obligatorio.");
+      return;
+    }
+    if (!address.trim()) {
+      Alert.alert("Atención", "La dirección es obligatoria.");
+      return;
+    }
+
+    // Formato fecha YYYYMMDD
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const dateInt = parseInt(`${yyyy}${mm}${dd}`, 10);
+
+    const parsedPayment = parseFloat(payment);
+    const abono = isNaN(parsedPayment) ? 0 : parsedPayment;
+
+    const payload = {
+      company: 1,
+      date: dateInt,
+      phone: phone,
+      name: name,
+      address: address,
+      total: total,
+      subTotal: abono,
+      description: description + (abono > 0 ? ` | Abono: $${payment}` : ""),
+      products: cart.map((item) => ({
+        idProducto: item.id,
+        name: item.name,
+        unitValue: item.quantity,
+        unitPrice: item.price,
+      })),
+    };
+
+    try {
+      const response = await fetch("http://192.168.0.18:2909/orden/createOrden", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      
+      if (response.ok) {
+        Alert.alert("Éxito", "Pedido guardado correctamente.");
+      } else {
+        Alert.alert("Error", "No se pudo guardar el pedido.");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Fallo de conexión con el servidor.");
+    }
   };
 
   const total = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  const debt = Math.max(0, total - (parseFloat(payment) || 0));
+
+  const handleQuickPayment = (factor: number) => {
+    if (factor === 0) setPayment("");
+    else setPayment((total * factor).toFixed(2));
+  };
 
   const renderItem = ({ item }: any) => {
     const max = item.disponibilidad ?? 0; // ✅ fallback seguro
@@ -154,8 +221,69 @@ export default function CartScreen() {
             }
           />
 
-          <TextInput placeholder="Nombre" style={styles.input} />
-          <TextInput placeholder="Dirección" style={styles.input} />
+          <TextInput
+            placeholder="Nombre"
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+          />
+          <TextInput
+            placeholder="Dirección"
+            style={styles.input}
+            value={address}
+            onChangeText={setAddress}
+          />
+
+          {/* 📝 DESCRIPCIÓN OPCIONAL */}
+          <TouchableOpacity
+            onPress={() => setShowDescription(!showDescription)}
+            style={styles.descToggle}
+          >
+            <Text style={styles.descToggleText}>
+              {showDescription ? "− Ocultar nota" : "+ Agregar nota / descripción"}
+            </Text>
+          </TouchableOpacity>
+
+          {showDescription && (
+            <TextInput
+              placeholder="Escribe aquí detalles adicionales..."
+              style={[styles.input, styles.textArea]}
+              multiline
+              value={description}
+              onChangeText={setDescription}
+            />
+          )}
+
+          {/* � SECCIÓN DE PAGO */}
+          <View style={styles.paymentContainer}>
+            <View style={styles.paymentHeader}>
+              <Text style={styles.paymentTitle}>Abono / Pago</Text>
+              <View style={styles.quickActions}>
+                <TouchableOpacity onPress={() => handleQuickPayment(0)}><Text style={styles.quickActionText}>0%</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => handleQuickPayment(0.5)}><Text style={styles.quickActionText}>50%</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => handleQuickPayment(1)}><Text style={styles.quickActionText}>Total</Text></TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.paymentRow}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.currencySymbol}>$</Text>
+                <TextInput
+                  style={styles.paymentInput}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  value={payment}
+                  onChangeText={setPayment}
+                />
+              </View>
+              <View style={styles.debtContainer}>
+                <Text style={styles.debtLabel}>Pendiente</Text>
+                <Text style={[styles.debtValue, { color: debt > 0 ? '#e74c3c' : '#27ae60' }]}>
+                  ${debt.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          </View>
 
           <View style={styles.productsHeader}>
             <Text style={styles.productsTitle}>Productos</Text>
@@ -244,6 +372,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 10,
   },
+  textArea: {
+    height: 80,
+    textAlignVertical: "top",
+  },
+  descToggle: {
+    marginBottom: 10,
+  },
+  descToggleText: {
+    color: "#3498db",
+    fontWeight: "bold",
+  },
   productsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -277,5 +416,67 @@ const styles = StyleSheet.create({
   headerSaveBtn: {
     marginRight: 10,
     padding: 5,
+  },
+  paymentContainer: {
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  paymentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  paymentTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#34495e",
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  quickActionText: {
+    color: '#3498db',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#bdc3c7",
+    width: '45%',
+    paddingBottom: 2,
+  },
+  currencySymbol: {
+    fontSize: 18,
+    color: '#7f8c8d',
+    marginRight: 5,
+  },
+  paymentInput: {
+    fontSize: 18,
+    flex: 1,
+    color: '#2c3e50',
+    padding: 0,
+  },
+  debtContainer: {
+    alignItems: 'flex-end',
+  },
+  debtLabel: {
+    fontSize: 11,
+    color: '#95a5a6',
+    marginBottom: 2,
+  },
+  debtValue: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
