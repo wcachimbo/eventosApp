@@ -29,22 +29,23 @@ function CartHeaderButton() {
         <View
           style={{
             position: 'absolute',
-            top: -8,
-            right: -10,
+            top: 0,
+            right: 0,
             backgroundColor: 'red',
-            borderRadius: 12,
-            minWidth: 22,
-            height: 22,
-            paddingHorizontal: 5,
+            borderRadius: 9,
+            minWidth: 18,
+            height: 18,
+            paddingHorizontal: 4,
             justifyContent: 'center',
             alignItems: 'center',
             elevation: 6,
+            zIndex: 10,
           }}
         >
           <Text
             style={{
               color: 'white',
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: 'bold',
             }}
           >

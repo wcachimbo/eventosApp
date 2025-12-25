@@ -7,7 +7,7 @@ type Product = {
   id: number;
   name: string;
   price: number;
-  quantity: number;
+  disponibilidad: number;
   image: string;
 };
 
@@ -28,7 +28,7 @@ export default function ProductListScreen() {
             id: item.id_product,
             name: item.nombre,
             price: item.price,
-            quantity: item.available,
+            disponibilidad: item.available,
             image: `data:image/jpeg;base64,${item.imagen}`,
           }));
 
@@ -58,7 +58,7 @@ export default function ProductListScreen() {
 
           <View style={styles.quantityButtonRow}>
             <Text style={styles.quantityText}>
-              Disponibles: {item.quantity}
+              Disponibles: {item.disponibilidad}
             </Text>
 
             <TouchableOpacity

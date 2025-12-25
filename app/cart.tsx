@@ -1,6 +1,9 @@
+import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Stack } from "expo-router";
 import React, { useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -20,6 +23,18 @@ export default function CartScreen() {
 
   /* 📱 CELULAR (solo números) */
   const [phone, setPhone] = useState("");
+
+  const handleSaveOrder = () => {
+    if (!phone.trim()) {
+      Alert.alert("Atención", "El campo de celular es obligatorio.");
+      return;
+    }
+    if (phone.length !== 10) {
+      Alert.alert("Atención", "El celular debe tener exactamente 10 dígitos.");
+      return;
+    }
+    Alert.alert("Éxito", "Pedido validado correctamente.");
+  };
 
   const total = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -89,6 +104,16 @@ export default function CartScreen() {
   };
 
   return (
+    <>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <TouchableOpacity style={styles.headerSaveBtn} onPress={handleSaveOrder}>
+              <Ionicons name="save" size={28} color="#27ae60" />
+            </TouchableOpacity>
+          ),
+        }}
+      />
     <FlatList
       data={cart}
       keyExtractor={item => item.id.toString()}
@@ -122,6 +147,7 @@ export default function CartScreen() {
             placeholder="Celular"
             style={styles.input}
             keyboardType="number-pad"
+            maxLength={10}
             value={phone}
             onChangeText={(text) =>
               setPhone(text.replace(/[^0-9]/g, ""))
@@ -131,21 +157,18 @@ export default function CartScreen() {
           <TextInput placeholder="Nombre" style={styles.input} />
           <TextInput placeholder="Dirección" style={styles.input} />
 
-          <Text style={styles.title}>Productos Seleccionados</Text>
+          <View style={styles.productsHeader}>
+            <Text style={styles.productsTitle}>Productos</Text>
+            <View style={styles.totalBadge}>
+              <Text style={styles.totalLabel}>Total:</Text>
+              <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+            </View>
+          </View>
         </>
       }
-      ListFooterComponent={
-        <>
-          <Text style={styles.total}>
-            Total: ${total.toFixed(2)}
-          </Text>
-
-          <TouchableOpacity style={styles.saveBtn}>
-            <Text style={styles.saveText}>Guardar Pedido</Text>
-          </TouchableOpacity>
-        </>
-      }
+      ListFooterComponent={null}
     />
+    </>
   );
 }
 
@@ -221,20 +244,38 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 10,
   },
-  total: {
+  productsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  productsTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginVertical: 15,
-    textAlign: "center",
+    color: "#2c3e50",
   },
-  saveBtn: {
-    backgroundColor: "#003366",
-    padding: 15,
-    borderRadius: 8,
+  totalBadge: {
+    backgroundColor: "#27ae60",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  saveText: {
+  totalLabel: {
+    color: "#fff",
+    fontSize: 12,
+    marginRight: 4,
+  },
+  totalValue: {
     color: "#fff",
     fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 16,
+  },
+  headerSaveBtn: {
+    marginRight: 10,
+    padding: 5,
   },
 });
