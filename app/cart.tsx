@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
   FlatList,
   Image,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -32,6 +33,10 @@ export default function CartScreen() {
 
   /*  PAGO */
   const [payment, setPayment] = useState("");
+
+  /* 🟢 MODAL DE ÉXITO */
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [orderResponse, setOrderResponse] = useState<any>(null);
 
   const handleSaveOrder = async () => {
     if (!phone.trim()) {
@@ -86,7 +91,8 @@ export default function CartScreen() {
       const json = await response.json();
       
       if (response.ok) {
-        Alert.alert("Éxito", "Pedido guardado correctamente.");
+        setOrderResponse(json);
+        setSuccessModalVisible(true);
       } else {
         Alert.alert("Error", "No se pudo guardar el pedido.");
       }
@@ -94,6 +100,12 @@ export default function CartScreen() {
       console.error(error);
       Alert.alert("Error", "Fallo de conexión con el servidor.");
     }
+  };
+
+  const closeSuccessModal = () => {
+    setSuccessModalVisible(false);
+    setOrderResponse(null);
+    router.navigate("/"); // Volver a la pantalla de productos
   };
 
   const total = cart.reduce(
@@ -296,6 +308,35 @@ export default function CartScreen() {
       }
       ListFooterComponent={null}
     />
+
+    {/* 🟢 MODAL DE ÉXITO */}
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={successModalVisible}
+      onRequestClose={closeSuccessModal}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Ionicons name="checkmark-circle" size={80} color="#27ae60" />
+          <Text style={styles.modalTitle}>¡Pedido Exitoso!</Text>
+          <Text style={styles.modalText}>El pedido se ha registrado correctamente.</Text>
+
+          {orderResponse && (
+            <View style={styles.infoBox}>
+              <Text style={styles.infoLabel}>ID Pedido:</Text>
+              <Text style={styles.infoValue}>#{orderResponse?.id || orderResponse?.idOrden || orderResponse?.response?.id || orderResponse?.response?.idOrden || "---"}</Text>
+              <Text style={styles.infoLabel}>Cliente:</Text>
+              <Text style={styles.infoValue}>{orderResponse.name || name}</Text>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.modalBtn} onPress={closeSuccessModal}>
+            <Text style={styles.modalBtnText}>Volver a Productos</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
     </>
   );
 }
@@ -477,6 +518,72 @@ const styles = StyleSheet.create({
   },
   debtValue: {
     fontSize: 18,
+    fontWeight: "bold",
+  },
+  /* MODAL STYLES */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    width: "85%",
+    padding: 25,
+    borderRadius: 20,
+    alignItems: "center",
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#2c3e50",
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#7f8c8d",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  infoBox: {
+    width: "100%",
+    backgroundColor: "#f8f9fa",
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: "#ecf0f1",
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: "#95a5a6",
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#2c3e50",
+    marginBottom: 10,
+  },
+  modalBtn: {
+    backgroundColor: "#27ae60",
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    width: "100%",
+    alignItems: "center",
+    shadowColor: "#27ae60",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  modalBtnText: {
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "bold",
   },
 });

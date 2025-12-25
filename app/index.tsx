@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCart } from '../context/CartContext';
 
 
@@ -14,9 +16,12 @@ type Product = {
 export default function ProductListScreen() {
   const { addToCart, cart, removeFromCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
+  useFocusEffect(
+    useCallback(() => {
+      const fetchProducts = async () => {
+      setLoading(true);
       try {
         const response = await fetch('http://192.168.0.18:2909/products/getProduct?company=1');
         const json = await response.json();
@@ -34,11 +39,14 @@ export default function ProductListScreen() {
         }
       } catch (error) {
         console.error('Error al cargar productos:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProducts();
-  }, []);
+    }, [])
+  );
 
   const renderItem = ({ item }: { item: Product }) => {
     const isInCart = cart.some(cartItem => cartItem.id === item.id);
@@ -47,38 +55,40 @@ export default function ProductListScreen() {
       <View style={styles.productContainer}>
         <Image source={{ uri: item.image }} style={styles.productImage} />
 
-        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
 
-        <View style={styles.priceQuantityRow}>
-          <Text style={styles.priceText}>
-            Valor unitario: ${item.price.toFixed(2)}
-          </Text>
-
-          <View style={styles.quantityButtonRow}>
-            <Text style={styles.quantityText}>
-              Disponibles: {item.disponibilidad}
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.addButton,
-                isInCart && styles.removeButton,
-              ]}
-              onPress={() =>
-                isInCart
-                  ? removeFromCart(item.id)
-                  : addToCart(item)
-              }
-            >
-              <Text style={styles.addButtonText}>
-                {isInCart ? 'X' : '+'}
-              </Text>
-            </TouchableOpacity>
+        <View style={styles.cardFooter}>
+          <View style={styles.infoColumn}>
+            <Text style={styles.priceText}>${item.price.toFixed(2)}</Text>
+            <Text style={styles.stockText}>Disp: {item.disponibilidad}</Text>
           </View>
+
+          <TouchableOpacity
+            style={[
+              styles.addButton,
+              isInCart && styles.removeButton,
+            ]}
+            onPress={() =>
+              isInCart
+                ? removeFromCart(item.id)
+                : addToCart(item)
+            }
+          >
+            <Ionicons name={isInCart ? "trash" : "add"} size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Cargando productos...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -120,35 +130,50 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
+    height: 40, // Altura fija para alinear tarjetas
+    textAlignVertical: 'center',
   },
-  priceQuantityRow: {
-    width: '100%',
-  },
-  priceText: {
-    marginBottom: 5,
-  },
-  quantityButtonRow: {
+  cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
+    marginTop: 5,
   },
-  quantityText: {
-    flex: 1,
+  infoColumn: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  priceText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  stockText: {
+    fontSize: 12,
+    color: '#7f8c8d',
   },
   addButton: {
-    backgroundColor: '#27ae60',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    backgroundColor: '#3498db',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
   },
   removeButton: {
     backgroundColor: '#e74c3c',
   },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 18,
-  }
- 
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ecf0f1',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#7f8c8d',
+  },
 });
