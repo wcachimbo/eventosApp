@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
 import { CartProvider, useCart } from '../context/CartContext';
 
 /* 🔴 BOTÓN DEL CARRITO EN EL HEADER */
@@ -9,8 +10,8 @@ function CartHeaderButton() {
   if (cart.length === 0) {
     return (
       <TouchableOpacity
-        onPress={() => router.push('/cart')}
-        style={{ marginRight: 20 }}
+        onPress={() => Alert.alert("Carrito Vacío", "Debes seleccionar productos para entrar al carrito.")}
+        style={{ marginRight: 20, opacity: 0.5 }}
       >
         <Text style={{ fontSize: 22 }}>🛒</Text>
       </TouchableOpacity>
@@ -57,6 +58,17 @@ function CartHeaderButton() {
   );
 }
 
+function HeaderRight() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <CartHeaderButton />
+      <TouchableOpacity onPress={() => router.push('/orders')} style={{ marginRight: 15 }}>
+        <Ionicons name="receipt-outline" size={26} color="#ecf0f1" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   return (
     <CartProvider>
@@ -65,7 +77,7 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: '#2c3e50' },
           headerTintColor: '#ecf0f1',
           headerTitleAlign: 'left', // 👈 título a la izquierda
-          headerRight: () => <CartHeaderButton />, // 👈 carrito arriba
+          headerRight: () => <HeaderRight />, // 👈 carrito y pedidos arriba
         }}
       >
         <Stack.Screen

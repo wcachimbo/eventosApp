@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -16,7 +16,14 @@ import {
 import { useCart } from "../context/CartContext";
 
 export default function CartScreen() {
-  const { cart, removeFromCart, setQuantity, updatePrice } = useCart();
+  const { cart, removeFromCart, setQuantity, updatePrice, clearCart } = useCart();
+
+  /* 🔄 REDIRECCIONAR SI SE VACÍA EL CARRITO */
+  useEffect(() => {
+    if (cart.length === 0) {
+      router.navigate("/");
+    }
+  }, [cart]);
 
   /* 📅 FECHA */
   const [date, setDate] = useState(new Date());
@@ -105,6 +112,7 @@ export default function CartScreen() {
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
     setOrderResponse(null);
+    clearCart();
     router.navigate("/"); // Volver a la pantalla de productos
   };
 
