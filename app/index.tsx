@@ -23,7 +23,7 @@ export default function ProductListScreen() {
       const fetchProducts = async () => {
       setLoading(true);
       try {
-        const response = await fetch('http://192.168.0.18:2909/products/getProduct?company=1');
+        const response = await fetch('http://192.168.20.181:2909/products/getProduct?company=1');
         const json = await response.json();
 
         if (json.code === '0000') {

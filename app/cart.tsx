@@ -16,7 +16,17 @@ import {
 import { useCart } from "../context/CartContext";
 
 export default function CartScreen() {
-  const { cart, removeFromCart, setQuantity, updatePrice, clearCart } = useCart();
+  const { 
+    cart, 
+    removeFromCart, 
+    setQuantity, 
+    updatePrice, 
+    clearCart, 
+    orderMetadata, 
+    updateMetadata 
+  } = useCart();
+  
+  const isEditing = orderMetadata?.isEditing || false;
 
   /* 🔄 REDIRECCIONAR SI SE VACÍA EL CARRITO */
   useEffect(() => {
@@ -44,6 +54,49 @@ export default function CartScreen() {
   /* 🟢 MODAL DE ÉXITO */
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [orderResponse, setOrderResponse] = useState<any>(null);
+
+  /* ✏️ EFECTO PARA CARGAR DATOS DESDE CONTEXTO */
+  useEffect(() => {
+    if (isEditing && orderMetadata) {
+      if (orderMetadata.phone) setPhone(orderMetadata.phone);
+      if (orderMetadata.name) setName(orderMetadata.name);
+      if (orderMetadata.address) setAddress(orderMetadata.address);
+      if (orderMetadata.subTotal) setPayment(orderMetadata.subTotal.toString());
+      
+      // Parsear fecha YYYYMMDD
+      if (orderMetadata.date) {
+        const dStr = orderMetadata.date.toString();
+        if (dStr.length === 8) {
+           const year = parseInt(dStr.substring(0, 4));
+           const month = parseInt(dStr.substring(4, 6)) - 1;
+           const day = parseInt(dStr.substring(6, 8));
+           setDate(new Date(year, month, day));
+        }
+      }
+      
+      // Parsear descripción (limpiar el texto automático de abono anterior)
+      if (orderMetadata.description) {
+         let desc = orderMetadata.description;
+         if (desc.includes(' | Abono:')) desc = desc.split(' | Abono:')[0];
+         setDescription(desc);
+         if (desc) setShowDescription(true);
+      }
+    }
+  }, [isEditing, orderMetadata?.idOrden]); // Dependencia clave: idOrden
+
+  /* 💾 GUARDAR ESTADO TEMPORAL AL SALIR (Para agregar productos) */
+  const handleAddMoreProducts = () => {
+    if (isEditing) {
+      updateMetadata({
+        phone,
+        name,
+        address,
+        description,
+        // No guardamos fecha/pago aquí para simplificar, pero se podría
+      });
+    }
+    router.navigate('/'); // Ir a lista de productos
+  };
 
   const handleSaveOrder = async () => {
     if (!phone.trim()) {
@@ -73,6 +126,7 @@ export default function CartScreen() {
     const abono = isNaN(parsedPayment) ? 0 : parsedPayment;
 
     const payload = {
+      idOrden: isEditing ? orderMetadata?.idOrden : undefined,
       company: 1,
       date: dateInt,
       phone: phone,
@@ -89,8 +143,12 @@ export default function CartScreen() {
       })),
     };
 
+    const url = isEditing 
+      ? "http://192.168.20.181:2909/orden/updateOrden" 
+      : "http://192.168.20.181:2909/orden/createOrden";
+
     try {
-      const response = await fetch("http://192.168.0.18:2909/orden/createOrden", {
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -101,7 +159,7 @@ export default function CartScreen() {
         setOrderResponse(json);
         setSuccessModalVisible(true);
       } else {
-        Alert.alert("Error", "No se pudo guardar el pedido.");
+        Alert.alert("Error", `No se pudo ${isEditing ? 'actualizar' : 'guardar'} el pedido.`);
       }
     } catch (error) {
       console.error(error);
@@ -113,7 +171,11 @@ export default function CartScreen() {
     setSuccessModalVisible(false);
     setOrderResponse(null);
     clearCart();
-    router.navigate("/"); // Volver a la pantalla de productos
+    if (isEditing) {
+      router.navigate("/orders"); // Si editamos, volver a pedidos
+    } else {
+      router.navigate("/"); // Si es nuevo, volver a productos
+    }
   };
 
   const total = cart.reduce(
@@ -194,6 +256,7 @@ export default function CartScreen() {
     <>
       <Stack.Screen
         options={{
+          title: isEditing ? "Actualizar Pedido" : "Carrito",
           headerRight: () => (
             <TouchableOpacity style={styles.headerSaveBtn} onPress={handleSaveOrder}>
               <Ionicons name="save" size={28} color="#27ae60" />
@@ -208,7 +271,7 @@ export default function CartScreen() {
       contentContainerStyle={styles.container}
       ListHeaderComponent={
         <>
-          <Text style={styles.title}>Detalles del Pedido</Text>
+          <Text style={styles.title}>{isEditing ? "Editar Detalles" : "Detalles del Pedido"}</Text>
 
           <TouchableOpacity
             style={styles.input}
@@ -305,6 +368,12 @@ export default function CartScreen() {
             </View>
           </View>
 
+          {/* ➕ BOTÓN AGREGAR MÁS PRODUCTOS */}
+          <TouchableOpacity style={styles.addMoreBtn} onPress={handleAddMoreProducts}>
+            <Ionicons name="add-circle-outline" size={24} color="#fff" />
+            <Text style={styles.addMoreText}>Agregar más productos</Text>
+          </TouchableOpacity>
+
           <View style={styles.productsHeader}>
             <Text style={styles.productsTitle}>Productos</Text>
             <View style={styles.totalBadge}>
@@ -327,8 +396,8 @@ export default function CartScreen() {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Ionicons name="checkmark-circle" size={80} color="#27ae60" />
-          <Text style={styles.modalTitle}>¡Pedido Exitoso!</Text>
-          <Text style={styles.modalText}>El pedido se ha registrado correctamente.</Text>
+          <Text style={styles.modalTitle}>{isEditing ? "¡Actualizado!" : "¡Pedido Exitoso!"}</Text>
+          <Text style={styles.modalText}>El pedido se ha {isEditing ? "actualizado" : "registrado"} correctamente.</Text>
 
           {orderResponse && (
             <View style={styles.infoBox}>
@@ -340,7 +409,7 @@ export default function CartScreen() {
           )}
 
           <TouchableOpacity style={styles.modalBtn} onPress={closeSuccessModal}>
-            <Text style={styles.modalBtnText}>Volver a Productos</Text>
+            <Text style={styles.modalBtnText}>{isEditing ? "Volver a Pedidos" : "Volver a Productos"}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -432,6 +501,16 @@ const styles = StyleSheet.create({
     color: "#3498db",
     fontWeight: "bold",
   },
+  addMoreBtn: {
+    backgroundColor: '#3498db',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 10,
+  },
+  addMoreText: { color: '#fff', fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
   productsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

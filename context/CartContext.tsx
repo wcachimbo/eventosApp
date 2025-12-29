@@ -13,6 +13,20 @@ export type CartItem = {
 };
 
 /* =====================
+   METADATA DE EDICIÓN
+===================== */
+export type OrderMetadata = {
+  idOrden?: number;
+  date?: number;
+  phone: string;
+  name: string;
+  address: string;
+  subTotal: number;
+  description: string;
+  isEditing: boolean;
+};
+
+/* =====================
    CONTEXTO
 ===================== */
 type CartContextType = {
@@ -22,6 +36,9 @@ type CartContextType = {
   setQuantity: (id: number, quantity: number) => void;
   updatePrice: (id: number, price: number) => void;
   clearCart: () => void;
+  startEditing: (items: CartItem[], metadata: OrderMetadata) => void;
+  updateMetadata: (metadata: Partial<OrderMetadata>) => void;
+  orderMetadata: OrderMetadata | null;
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -31,6 +48,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 ===================== */
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderMetadata, setOrderMetadata] = useState<OrderMetadata | null>(null);
 
   /* ➕ AGREGAR AL CARRITO */
   const addToCart = (item: any) => {
@@ -100,6 +118,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   /* 🧹 LIMPIAR CARRITO */
   const clearCart = () => {
     setCart([]);
+    setOrderMetadata(null); // Limpiamos también la metadata
+  };
+
+  /* 🔄 INICIAR EDICIÓN */
+  const startEditing = (items: CartItem[], metadata: OrderMetadata) => {
+    setCart(items);
+    setOrderMetadata(metadata);
+  };
+
+  /* 📝 ACTUALIZAR METADATA (mientras se edita) */
+  const updateMetadata = (data: Partial<OrderMetadata>) => {
+    setOrderMetadata(prev => prev ? { ...prev, ...data } : null);
   };
 
   return (
@@ -111,6 +141,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setQuantity,
         updatePrice,
         clearCart,
+        startEditing,
+        updateMetadata,
+        orderMetadata,
       }}
     >
       {children}
