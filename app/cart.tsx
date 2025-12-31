@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -79,6 +81,7 @@ export default function CartScreen() {
     orderMetadata, 
     updateMetadata 
   } = useCart();
+  const flatListRef = useRef<FlatList>(null);
   
   const isEditing = orderMetadata?.isEditing || false;
 
@@ -111,6 +114,22 @@ export default function CartScreen() {
   /* 🟢 MODAL DE ÉXITO */
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [orderResponse, setOrderResponse] = useState<any>(null);
+
+  /* ⌨️ CONTROL ELEGANTE DEL TECLADO (Padding Dinámico) */
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showListener = Keyboard.addListener(showEvent, (e) => setKeyboardPadding(e.endCoordinates.height));
+    const hideListener = Keyboard.addListener(hideEvent, () => setKeyboardPadding(0));
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
 
   /* ✏️ EFECTO PARA CARGAR DATOS DESDE CONTEXTO */
   useEffect(() => {
@@ -291,7 +310,7 @@ export default function CartScreen() {
     else setPayment((total * factor).toFixed(2));
   };
 
-  const renderItem = ({ item }: any) => {
+  const renderItem = ({ item, index }: any) => {
     const max = item.disponibilidad ?? 0; // ✅ fallback seguro
 
     const onChangeQty = (text: string) => {
@@ -308,6 +327,13 @@ export default function CartScreen() {
       if (!isNaN(value) && value > 0) {
         updatePrice(item.id, value);
       }
+    };
+
+    const scrollToItem = () => {
+      // Esperamos un momento a que el teclado empiece a subir
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({ index, viewPosition: 0.2, animated: true });
+      }, 300);
     };
 
     return (
@@ -328,6 +354,7 @@ export default function CartScreen() {
               keyboardType="number-pad"
               value={item.quantity.toString()}
               onChangeText={onChangeQty}
+              onFocus={scrollToItem}
             />
 
             <TextInput
@@ -335,6 +362,7 @@ export default function CartScreen() {
               keyboardType="decimal-pad"
               value={item.price.toString()}
               onChangeText={onChangePrice}
+              onFocus={scrollToItem}
             />
 
             <Text style={styles.subtotal}>
@@ -379,10 +407,16 @@ export default function CartScreen() {
         }}
       />
     <FlatList
+      ref={flatListRef}
       data={cart}
       keyExtractor={item => item.id.toString()}
       renderItem={renderItem}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, { paddingBottom: keyboardPadding > 0 ? keyboardPadding + 100 : 20 }]}
+      keyboardDismissMode="on-drag"
+      onScrollToIndexFailed={(info) => {
+        // Fallback de seguridad por si falla el cálculo exacto
+        flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+      }}
       ListHeaderComponent={
         <>
           <Text style={styles.title}>{isEditing ? "Editar Detalles" : "Detalles del Pedido"}</Text>
