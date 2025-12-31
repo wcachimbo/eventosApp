@@ -15,6 +15,60 @@ import {
 } from "react-native";
 import { useCart } from "../context/CartContext";
 
+/* 🛠 LÓGICA DE SERVICIO INTEGRADA (Para evitar errores de importación) */
+interface ProductService {
+  productId: number;
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+interface OrderDataService {
+  company: number;
+  idOrden: number;
+  phone: string;
+  date: number;
+  name: string;
+  address: string;
+  subTotal: number;
+  total: number;
+  description: string;
+  products: ProductService[];
+}
+
+const updateOrder = async (orderData: OrderDataService, originalProducts: ProductService[]) => {
+  // Comparar productos para ver si hubo cambios
+  const hasChanges = () => {
+    if (originalProducts.length !== orderData.products.length) return true;
+    
+    // Mapeamos por ID para comparar cantidad y precio
+    const originalMap = new Map(originalProducts.map((p) => [p.productId, p]));
+    
+    for (const p of orderData.products) {
+      const original = originalMap.get(p.productId);
+      // Si no existe, o cambió la cantidad, o cambió el precio
+      if (!original || original.quantity !== p.quantity || original.price !== p.price) return true;
+    }
+    return false;
+  };
+
+  const payload = {
+    ...orderData,
+    changeProduct: hasChanges(),
+  };
+
+  console.log("📡 Enviando actualización de orden:", JSON.stringify(payload));
+
+  const response = await fetch('http://192.168.0.18:2909/orden/updateOrden', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
+};
+
 export default function CartScreen() {
   const { 
     cart, 
@@ -27,6 +81,9 @@ export default function CartScreen() {
   } = useCart();
   
   const isEditing = orderMetadata?.isEditing || false;
+
+  /* 💰 FORMATO MONEDA */
+  const formatCurrency = (amount: number) => amount.toLocaleString('es-CO');
 
   /* 🔄 REDIRECCIONAR SI SE VACÍA EL CARRITO */
   useEffect(() => {
@@ -98,6 +155,12 @@ export default function CartScreen() {
     router.navigate('/'); // Ir a lista de productos
   };
 
+  /* ❌ CANCELAR EDICIÓN */
+  const handleCancelEdit = () => {
+    clearCart(); // Limpia carrito y metadata
+    router.navigate("/orders"); // Vuelve a pedidos
+  };
+
   const handleSaveOrder = async () => {
     if (!phone.trim()) {
       Alert.alert("Atención", "El campo de celular es obligatorio.");
@@ -125,6 +188,42 @@ export default function CartScreen() {
     const parsedPayment = parseFloat(payment);
     const abono = isNaN(parsedPayment) ? 0 : parsedPayment;
 
+    // 🔄 LÓGICA DE ACTUALIZACIÓN (EDITAR)
+    if (isEditing) {
+      const productsForService = cart.map((item) => ({
+        productId: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      // Recuperamos los productos originales de los metadatos (si existen)
+      const originalProducts = (orderMetadata as any)?.originalProducts || [];
+
+      const orderData = {
+        company: 1,
+        idOrden: orderMetadata?.idOrden ?? 0,
+        phone: phone,
+        date: dateInt,
+        name: name,
+        address: address,
+        subTotal: abono,
+        total: total,
+        description: description + (abono > 0 ? ` | Abono: $${payment}` : ""),
+        products: productsForService,
+      };
+
+      try {
+        const response = await updateOrder(orderData, originalProducts);
+        setOrderResponse(response);
+        setSuccessModalVisible(true);
+      } catch (error) {
+        Alert.alert("Error", "No se pudo actualizar el pedido.");
+      }
+      return;
+    }
+
+    // 🆕 LÓGICA DE CREACIÓN (NUEVO)
     const payload = {
       idOrden: isEditing ? orderMetadata?.idOrden : undefined,
       company: 1,
@@ -143,9 +242,7 @@ export default function CartScreen() {
       })),
     };
 
-    const url = isEditing 
-      ? "http://192.168.20.181:2909/orden/updateOrden" 
-      : "http://192.168.20.181:2909/orden/createOrden";
+    const url = "http://192.168.0.18:2909/orden/createOrden";
 
     try {
       const response = await fetch(url, {
@@ -170,9 +267,13 @@ export default function CartScreen() {
   const closeSuccessModal = () => {
     setSuccessModalVisible(false);
     setOrderResponse(null);
+    
+    // Guardamos el estado antes de limpiar para saber a dónde ir
+    const wasEditing = isEditing; 
     clearCart();
-    if (isEditing) {
-      router.navigate("/orders"); // Si editamos, volver a pedidos
+    
+    if (wasEditing) {
+      router.navigate("/orders"); 
     } else {
       router.navigate("/"); // Si es nuevo, volver a productos
     }
@@ -237,7 +338,7 @@ export default function CartScreen() {
             />
 
             <Text style={styles.subtotal}>
-              ${(item.price * item.quantity).toFixed(2)}
+              ${formatCurrency(item.price * item.quantity)}
             </Text>
 
             <TouchableOpacity
@@ -258,9 +359,22 @@ export default function CartScreen() {
         options={{
           title: isEditing ? "Actualizar Pedido" : "Carrito",
           headerRight: () => (
-            <TouchableOpacity style={styles.headerSaveBtn} onPress={handleSaveOrder}>
-              <Ionicons name="save" size={28} color="#27ae60" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* 3. BOTÓN CANCELAR (Solo en edición) */}
+              {isEditing && (
+                <TouchableOpacity style={styles.headerBtn} onPress={handleCancelEdit}>
+                  <Ionicons name="close-circle" size={32} color="#e74c3c" />
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity style={styles.headerBtn} onPress={handleSaveOrder}>
+                <Ionicons 
+                  name={isEditing ? "refresh-circle" : "save"} 
+                  size={isEditing ? 32 : 28} 
+                  color={isEditing ? "#3498db" : "#27ae60"} 
+                />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
@@ -293,9 +407,11 @@ export default function CartScreen() {
           )}
 
           {/* 📱 SOLO NÚMEROS */}
+            {/* 5. BLOQUEAR CELULAR EN EDICIÓN */}
           <TextInput
             placeholder="Celular"
-            style={styles.input}
+            style={[styles.input, isEditing && styles.disabledInput]}
+            editable={!isEditing}
             keyboardType="number-pad"
             maxLength={10}
             value={phone}
@@ -362,23 +478,26 @@ export default function CartScreen() {
               <View style={styles.debtContainer}>
                 <Text style={styles.debtLabel}>Pendiente</Text>
                 <Text style={[styles.debtValue, { color: debt > 0 ? '#e74c3c' : '#27ae60' }]}>
-                  ${debt.toFixed(2)}
+                  ${formatCurrency(debt)}
                 </Text>
               </View>
             </View>
           </View>
 
           {/* ➕ BOTÓN AGREGAR MÁS PRODUCTOS */}
-          <TouchableOpacity style={styles.addMoreBtn} onPress={handleAddMoreProducts}>
-            <Ionicons name="add-circle-outline" size={24} color="#fff" />
-            <Text style={styles.addMoreText}>Agregar más productos</Text>
-          </TouchableOpacity>
+          {/* 4. SOLO MOSTRAR EN EDICIÓN */}
+          {isEditing && (
+            <TouchableOpacity style={styles.addMoreBtn} onPress={handleAddMoreProducts}>
+              <Ionicons name="add-circle-outline" size={24} color="#fff" />
+              <Text style={styles.addMoreText}>Agregar más productos</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.productsHeader}>
             <Text style={styles.productsTitle}>Productos</Text>
             <View style={styles.totalBadge}>
               <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+              <Text style={styles.totalValue}>${formatCurrency(total)}</Text>
             </View>
           </View>
         </>
@@ -402,7 +521,10 @@ export default function CartScreen() {
           {orderResponse && (
             <View style={styles.infoBox}>
               <Text style={styles.infoLabel}>ID Pedido:</Text>
-              <Text style={styles.infoValue}>#{orderResponse?.id || orderResponse?.idOrden || orderResponse?.response?.id || orderResponse?.response?.idOrden || "---"}</Text>
+              {/* 2. MOSTRAR ID CORRECTO AL EDITAR */}
+              <Text style={styles.infoValue}>
+                #{isEditing ? orderMetadata?.idOrden : (orderResponse?.id || orderResponse?.idOrden || orderResponse?.response?.id || orderResponse?.response?.idOrden || "---")}
+              </Text>
               <Text style={styles.infoLabel}>Cliente:</Text>
               <Text style={styles.infoValue}>{orderResponse.name || name}</Text>
             </View>
@@ -490,6 +612,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 10,
   },
+  disabledInput: {
+    backgroundColor: "#f0f0f0",
+    color: "#95a5a6",
+  },
   textArea: {
     height: 80,
     textAlignVertical: "top",
@@ -541,8 +667,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-  headerSaveBtn: {
-    marginRight: 10,
+  headerBtn: {
+    marginLeft: 15,
     padding: 5,
   },
   paymentContainer: {

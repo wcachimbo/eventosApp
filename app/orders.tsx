@@ -66,7 +66,7 @@ export default function OrdersScreen() {
     try {
       // Usamos la IP local consistente con los otros archivos
       // Agregamos timestamp para evitar caché y forzar datos frescos
-      const response = await fetch(`http://192.168.20.181:2909/orden/getOrdenPending?company=1&_t=${Date.now()}`);
+      const response = await fetch(`http://192.168.0.18:2909/orden/getOrdenPending?company=1&_t=${Date.now()}`);
       const json = await response.json();
 
       if (json.code === '0000') {
@@ -126,6 +126,9 @@ export default function OrdersScreen() {
     });
   };
 
+  /* 💰 FORMATO MONEDA */
+  const formatCurrency = (amount: number) => amount.toLocaleString('es-CO');
+
   /* ⚡ ACCIONES DE PEDIDO */
   const handleOrderAction = (action: 'entregar' | 'actualizar' | 'cancelar', order: Order) => {
     if (action === 'actualizar') {
@@ -140,7 +143,7 @@ export default function OrdersScreen() {
               setLoading(true);
               try {
                 // 1. Obtener catálogo para sacar las IMÁGENES
-                const prodResponse = await fetch('http://192.168.20.181:2909/products/getProduct?company=1');
+                const prodResponse = await fetch('http://192.168.0.18:2909/products/getProduct?company=1');
                 const prodJson = await prodResponse.json();
                 let imageMap: Record<number, string> = {};
 
@@ -160,6 +163,14 @@ export default function OrdersScreen() {
                   disponibilidad: 9999
                 }));
 
+                // 3a. Preparar productos originales para comparación (formato del servicio)
+                const originalProducts = order.products.map(p => ({
+                  productId: p.idProducto,
+                  name: p.name,
+                  quantity: p.unitValue,
+                  price: p.unitPrice
+                }));
+
                 // 3. Preparar Metadata
                 const metadata = {
                   orderId: order.idOrden,
@@ -170,7 +181,8 @@ export default function OrdersScreen() {
                   address: order.address,
                   subTotal: order.subTotal,
                   description: order.description,
-                  isEditing: true
+                  isEditing: true,
+                  originalProducts // Guardamos la referencia original
                 };
 
                 // 4. Iniciar edición y navegar
@@ -213,7 +225,7 @@ export default function OrdersScreen() {
     const newStatus = statusMap[action];
 
     try {
-      const response = await fetch('http://192.168.20.181:2909/orden/updateStatus', {
+      const response = await fetch('http://192.168.0.18:2909/orden/updateStatus', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -329,7 +341,7 @@ export default function OrdersScreen() {
               <View key={index} style={styles.productItem}>
                 <Text style={styles.prodQty}>{prod.unitValue}x</Text>
                 <Text style={styles.prodName}>{prod.name}</Text>
-                <Text style={styles.prodPrice}>${(prod.unitPrice * prod.unitValue).toLocaleString()}</Text>
+                <Text style={styles.prodPrice}>${formatCurrency(prod.unitPrice * prod.unitValue)}</Text>
               </View>
             ))}
           </View>
@@ -339,18 +351,18 @@ export default function OrdersScreen() {
         <View style={styles.cardFooter}>
           <View>
             <Text style={styles.footerLabel}>Total</Text>
-            <Text style={styles.totalAmount}>${item.total.toLocaleString()}</Text>
+            <Text style={styles.totalAmount}>${formatCurrency(item.total)}</Text>
           </View>
           <View style={styles.divider} />
           <View>
             <Text style={styles.footerLabel}>Abonado</Text>
-            <Text style={styles.paidAmount}>${item.subTotal.toLocaleString()}</Text>
+            <Text style={styles.paidAmount}>${formatCurrency(item.subTotal)}</Text>
           </View>
           <View style={styles.divider} />
           <View>
             <Text style={styles.footerLabel}>Resta</Text>
             <Text style={[styles.debtAmount, { color: debt > 0 ? '#e74c3c' : '#95a5a6' }]}>
-              ${debt.toLocaleString()}
+              ${formatCurrency(debt)}
             </Text>
           </View>
         </View>

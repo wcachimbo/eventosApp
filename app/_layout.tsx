@@ -20,7 +20,7 @@ function CartHeaderButton() {
 
   return (
     <TouchableOpacity
-      onPress={() => router.push('/cart')}
+      onPress={() => router.navigate('/cart')}
       style={{ marginRight: 20 }}
     >
       <View style={{ padding: 6 }}>
@@ -62,7 +62,7 @@ function HeaderRight() {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       <CartHeaderButton />
-      <TouchableOpacity onPress={() => router.push('/orders')} style={{ marginRight: 15 }}>
+      <TouchableOpacity onPress={() => router.navigate('/orders')} style={{ marginRight: 15 }}>
         <Ionicons name="receipt-outline" size={26} color="#ecf0f1" />
       </TouchableOpacity>
     </View>

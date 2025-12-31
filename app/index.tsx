@@ -23,7 +23,7 @@ export default function ProductListScreen() {
       const fetchProducts = async () => {
       setLoading(true);
       try {
-        const response = await fetch('http://192.168.20.181:2909/products/getProduct?company=1');
+        const response = await fetch('http://192.168.0.18:2909/products/getProduct?company=1');
         const json = await response.json();
 
         if (json.code === '0000') {
@@ -48,6 +48,9 @@ export default function ProductListScreen() {
     }, [])
   );
 
+  /* 💰 FORMATO MONEDA */
+  const formatCurrency = (amount: number) => amount.toLocaleString('es-CO');
+
   const renderItem = ({ item }: { item: Product }) => {
     const isInCart = cart.some(cartItem => cartItem.id === item.id);
 
@@ -59,7 +62,7 @@ export default function ProductListScreen() {
 
         <View style={styles.cardFooter}>
           <View style={styles.infoColumn}>
-            <Text style={styles.priceText}>${item.price.toFixed(2)}</Text>
+            <Text style={styles.priceText}>${formatCurrency(item.price)}</Text>
             <Text style={styles.stockText}>Disp: {item.disponibilidad}</Text>
           </View>
 
