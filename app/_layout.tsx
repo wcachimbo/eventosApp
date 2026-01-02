@@ -62,6 +62,11 @@ function HeaderRight() {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       <CartHeaderButton />
+      
+      <TouchableOpacity onPress={() => router.navigate('/collect')} style={{ marginRight: 20 }}>
+        <Ionicons name="storefront-outline" size={26} color="#ecf0f1" />
+      </TouchableOpacity>
+
       <TouchableOpacity onPress={() => router.navigate('/orders')} style={{ marginRight: 15 }}>
         <Ionicons name="receipt-outline" size={26} color="#ecf0f1" />
       </TouchableOpacity>
@@ -91,6 +96,10 @@ export default function RootLayout() {
         <Stack.Screen
           name="orders"
           options={{ title: 'Pedidos' }}
+        />
+        <Stack.Screen
+          name="collect"
+          options={{ title: 'Por Recoger' }}
         />
       </Stack>
     </CartProvider>

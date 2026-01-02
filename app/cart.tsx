@@ -3,6 +3,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -56,12 +57,19 @@ const updateOrder = async (orderData: OrderDataService, originalProducts: Produc
 
   const payload = {
     ...orderData,
+    // 🛠️ CORRECCIÓN: Mapear al formato que espera el backend (idProducto, unitValue, unitPrice)
+    products: orderData.products.map(p => ({
+      idProducto: p.productId,
+      name: p.name,
+      unitValue: p.quantity,
+      unitPrice: p.price
+    })),
     changeProduct: hasChanges(),
   };
 
   console.log("📡 Enviando actualización de orden:", JSON.stringify(payload));
 
-  const response = await fetch('http://192.168.0.18:2909/orden/updateOrden', {
+  const response = await fetch('http://192.168.20.181:2909/orden/updateOrden', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify(payload),
@@ -104,14 +112,89 @@ export default function CartScreen() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
 
-  /* 📝 DESCRIPCIÓN (Opcional) */
+  /* 🔍 BUSCAR CLIENTE AUTOMÁTICAMENTE */
+  const fetchUserInfo = async (phoneNumber: string) => {
+    try {
+      const response = await fetch(`http://192.168.20.181:2909/client/getUserInfo?company=1&phone=${phoneNumber}`);
+      const json = await response.json();
+
+      if (json.code === "0000" && json.response) {
+        if (json.response.nameClient) setName(json.response.nameClient);
+        if (json.response.address) setAddress(json.response.address);
+      }
+    } catch (error) {
+      console.log("Error fetching client:", error);
+    }
+  };
+
+  /*  DESCRIPCIÓN (Opcional) */
   const [description, setDescription] = useState("");
   const [showDescription, setShowDescription] = useState(false);
 
   /*  PAGO */
   const [payment, setPayment] = useState("");
 
-  /* 🟢 MODAL DE ÉXITO */
+  /* 📦 DISPONIBILIDAD POR FECHA */
+  const [availabilityMap, setAvailabilityMap] = useState<Record<number, number>>({});
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  const checkAvailability = async (selectedDate: Date) => {
+    const today = new Date();
+    const isToday = selectedDate.getDate() === today.getDate() &&
+                    selectedDate.getMonth() === today.getMonth() &&
+                    selectedDate.getFullYear() === today.getFullYear();
+
+    if (isToday) {
+      setAvailabilityMap({});
+      return;
+    }
+
+    setCheckingAvailability(true);
+    try {
+      const yyyy = selectedDate.getFullYear();
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const dd = String(selectedDate.getDate()).padStart(2, "0");
+      const dateInt = parseInt(`${yyyy}${mm}${dd}`, 10);
+
+      const payload = {
+        company: 1,
+        date: dateInt,
+        products: cart.map(p => ({ idProducto: p.id }))
+      };
+
+      const response = await fetch('http://192.168.20.181:2909/products/available', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const json = await response.json();
+      
+      if (json.code === '0000' && Array.isArray(json.response)) {
+         const newMap: Record<number, number> = {};
+         json.response.forEach((item: any) => {
+             if (item.id_product) {
+                 newMap[item.id_product] = item.available;
+             }
+         });
+         setAvailabilityMap(newMap);
+
+         // Ajustar cantidades si exceden la nueva disponibilidad
+         cart.forEach(cartItem => {
+             const newMax = newMap[cartItem.id];
+             if (newMax !== undefined && cartItem.quantity > newMax) {
+                 setQuantity(cartItem.id, newMax);
+             }
+         });
+      }
+    } catch (error) {
+      console.error("Error checking availability:", error);
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
+  /*  MODAL DE ÉXITO */
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [orderResponse, setOrderResponse] = useState<any>(null);
 
@@ -261,7 +344,7 @@ export default function CartScreen() {
       })),
     };
 
-    const url = "http://192.168.0.18:2909/orden/createOrden";
+    const url = "http://192.168.20.181:2909/orden/createOrden";
 
     try {
       const response = await fetch(url, {
@@ -311,7 +394,7 @@ export default function CartScreen() {
   };
 
   const renderItem = ({ item, index }: any) => {
-    const max = item.disponibilidad ?? 0; // ✅ fallback seguro
+    const max = availabilityMap[item.id] ?? item.disponibilidad ?? 0; // ✅ fallback seguro
 
     const onChangeQty = (text: string) => {
       let value = parseInt(text || "0", 10);
@@ -386,6 +469,7 @@ export default function CartScreen() {
       <Stack.Screen
         options={{
           title: isEditing ? "Actualizar Pedido" : "Carrito",
+          headerBackVisible: !isEditing,
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               {/* 3. BOTÓN CANCELAR (Solo en edición) */}
@@ -425,7 +509,9 @@ export default function CartScreen() {
             style={styles.input}
             onPress={() => setShowPicker(true)}
           >
-            <Text>Fecha: {date.toLocaleDateString()}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text>Fecha: {date.toLocaleDateString()}</Text>
+            </View>
           </TouchableOpacity>
 
           {showPicker && (
@@ -435,7 +521,10 @@ export default function CartScreen() {
               minimumDate={new Date()}
               onChange={(e, selectedDate) => {
                 setShowPicker(false);
-                if (selectedDate) setDate(selectedDate);
+                if (selectedDate) {
+                  setDate(selectedDate);
+                  checkAvailability(selectedDate);
+                }
               }}
             />
           )}
@@ -449,9 +538,11 @@ export default function CartScreen() {
             keyboardType="number-pad"
             maxLength={10}
             value={phone}
-            onChangeText={(text) =>
-              setPhone(text.replace(/[^0-9]/g, ""))
-            }
+            onChangeText={(text) => {
+              const cleaned = text.replace(/[^0-9]/g, "");
+              setPhone(cleaned);
+              if (cleaned.length === 10) fetchUserInfo(cleaned);
+            }}
           />
 
           <TextInput
@@ -567,6 +658,21 @@ export default function CartScreen() {
           <TouchableOpacity style={styles.modalBtn} onPress={closeSuccessModal}>
             <Text style={styles.modalBtnText}>{isEditing ? "Volver a Pedidos" : "Volver a Productos"}</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+
+    {/* ⏳ MODAL DE CARGA (DISPONIBILIDAD) */}
+    <Modal
+      transparent={true}
+      animationType="fade"
+      visible={checkingAvailability}
+      onRequestClose={() => {}}
+    >
+      <View style={styles.loadingOverlay}>
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color="#3498db" />
+          <Text style={styles.loadingText}>Verificando disponibilidad...</Text>
         </View>
       </View>
     </Modal>
@@ -832,5 +938,24 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  /* LOADING OVERLAY */
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingBox: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    elevation: 5,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontWeight: "bold",
+    color: "#2c3e50",
   },
 });

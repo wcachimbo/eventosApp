@@ -47,18 +47,43 @@ export default function OrdersScreen() {
   const [sections, setSections] = useState<SectionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState<number[]>([]);
-  const { startEditing } = useCart();
+  const { startEditing, cart } = useCart();
 
-  /* 🏠 BOTÓN HOME EN HEADER */
+  /* 🏠 BOTÓN HOME Y CARRITO EN HEADER */
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity onPress={() => router.navigate('/')} style={{ marginRight: 15 }}>
-           <Ionicons name="home" size={24} color="#ecf0f1" />
-        </TouchableOpacity>
+      headerLeft: undefined, // Restaura el botón de atrás por defecto
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 15 }}>
+          <TouchableOpacity onPress={() => router.navigate('/')} style={{ marginRight: 20 }}>
+             <Ionicons name="home" size={24} color="#ecf0f1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.navigate('/collect')} style={{ marginRight: 20 }}>
+             <Ionicons name="storefront-outline" size={24} color="#ecf0f1" />
+          </TouchableOpacity>
+
+          {/* 🛒 CARRITO */}
+          <TouchableOpacity 
+            onPress={() => cart.length > 0 ? router.navigate('/cart') : Alert.alert("Carrito Vacío", "Debes seleccionar productos.")}
+          >
+            <View style={{ padding: 6 }}>
+              <Text style={{ fontSize: 22 }}>🛒</Text>
+              {cart.length > 0 && (
+                <View style={{
+                  position: 'absolute', top: 0, right: 0, backgroundColor: 'red', borderRadius: 9,
+                  minWidth: 18, height: 18, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center',
+                  elevation: 6, zIndex: 10
+                }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>{cart.length}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
       ),
     });
-  }, [navigation]);
+  }, [navigation, cart]);
 
   /* 🔄 CARGAR PEDIDOS */
   const fetchOrders = useCallback(async () => {
@@ -66,7 +91,7 @@ export default function OrdersScreen() {
     try {
       // Usamos la IP local consistente con los otros archivos
       // Agregamos timestamp para evitar caché y forzar datos frescos
-      const response = await fetch(`http://192.168.0.18:2909/orden/getOrdenPending?company=1&_t=${Date.now()}`);
+      const response = await fetch(`http://192.168.20.181:2909/orden/getOrdenPending?company=1&_t=${Date.now()}`);
       const json = await response.json();
 
       if (json.code === '0000') {
@@ -143,7 +168,7 @@ export default function OrdersScreen() {
               setLoading(true);
               try {
                 // 1. Obtener catálogo para sacar las IMÁGENES
-                const prodResponse = await fetch('http://192.168.0.18:2909/products/getProduct?company=1');
+                const prodResponse = await fetch('http://192.168.20.181:2909/products/getProduct?company=1');
                 const prodJson = await prodResponse.json();
                 let imageMap: Record<number, string> = {};
 
@@ -225,8 +250,8 @@ export default function OrdersScreen() {
     const newStatus = statusMap[action];
 
     try {
-      const response = await fetch('http://192.168.0.18:2909/orden/updateStatus', {
-        method: 'PUT',
+      const response = await fetch('http://192.168.20.181:2909/orden/updateStatus', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company: 1,
