@@ -8,6 +8,7 @@ import {
   FlatList,
   Image,
   Keyboard,
+  Linking,
   Modal,
   Platform,
   StyleSheet,
@@ -16,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { API_URL } from "../constants/Config";
 import { useCart } from "../context/CartContext";
 
 /* 🛠 LÓGICA DE SERVICIO INTEGRADA (Para evitar errores de importación) */
@@ -69,7 +71,7 @@ const updateOrder = async (orderData: OrderDataService, originalProducts: Produc
 
   console.log("📡 Enviando actualización de orden:", JSON.stringify(payload));
 
-  const response = await fetch('http://192.168.20.181:2909/orden/updateOrden', {
+  const response = await fetch(`${API_URL}/orden/updateOrden`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify(payload),
@@ -115,7 +117,7 @@ export default function CartScreen() {
   /* 🔍 BUSCAR CLIENTE AUTOMÁTICAMENTE */
   const fetchUserInfo = async (phoneNumber: string) => {
     try {
-      const response = await fetch(`http://192.168.20.181:2909/client/getUserInfo?company=1&phone=${phoneNumber}`);
+      const response = await fetch(`${API_URL}/client/getUserInfo?company=1&phone=${phoneNumber}`);
       const json = await response.json();
 
       if (json.code === "0000" && json.response) {
@@ -162,7 +164,7 @@ export default function CartScreen() {
         products: cart.map(p => ({ idProducto: p.id }))
       };
 
-      const response = await fetch('http://192.168.20.181:2909/products/available', {
+      const response = await fetch(`${API_URL}/products/available`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -344,7 +346,7 @@ export default function CartScreen() {
       })),
     };
 
-    const url = "http://192.168.20.181:2909/orden/createOrden";
+    const url = `${API_URL}/orden/createOrden`;
 
     try {
       const response = await fetch(url, {
@@ -493,7 +495,7 @@ export default function CartScreen() {
     <FlatList
       ref={flatListRef}
       data={cart}
-      keyExtractor={item => item.id.toString()}
+      keyExtractor={(item, index) => `${item.id}-${index}`}
       renderItem={renderItem}
       contentContainerStyle={[styles.container, { paddingBottom: keyboardPadding > 0 ? keyboardPadding + 100 : 20 }]}
       keyboardDismissMode="on-drag"
@@ -653,6 +655,20 @@ export default function CartScreen() {
               <Text style={styles.infoLabel}>Cliente:</Text>
               <Text style={styles.infoValue}>{orderResponse.name || name}</Text>
             </View>
+          )}
+
+          {/* 🟢 BOTÓN WHATSAPP (Si el servicio devuelve el link) */}
+          {(orderResponse?.whatsAppLink || orderResponse?.response?.whatsAppLink) && (
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: '#25D366', marginBottom: 15, flexDirection: 'row', justifyContent: 'center' }]}
+              onPress={() => {
+                const link = orderResponse?.whatsAppLink || orderResponse?.response?.whatsAppLink;
+                if (link) Linking.openURL(link);
+              }}
+            >
+              <Ionicons name="logo-whatsapp" size={24} color="#fff" style={{ marginRight: 10 }} />
+              <Text style={styles.modalBtnText}>Enviar a WhatsApp</Text>
+            </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.modalBtn} onPress={closeSuccessModal}>

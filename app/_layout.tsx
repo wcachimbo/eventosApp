@@ -13,7 +13,7 @@ function CartHeaderButton() {
         onPress={() => Alert.alert("Carrito Vacío", "Debes seleccionar productos para entrar al carrito.")}
         style={{ marginRight: 20, opacity: 0.5 }}
       >
-        <Text style={{ fontSize: 22 }}>🛒</Text>
+        <Ionicons name="cart-outline" size={28} color="#ecf0f1" />
       </TouchableOpacity>
     );
   }
@@ -24,7 +24,7 @@ function CartHeaderButton() {
       style={{ marginRight: 20 }}
     >
       <View style={{ padding: 6 }}>
-        <Text style={{ fontSize: 22 }}>🛒</Text>
+        <Ionicons name="cart-outline" size={28} color="#ecf0f1" />
 
         {/* 🔴 GLOBITO ROJO */}
         <View

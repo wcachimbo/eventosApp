@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { API_URL } from "../constants/Config";
 import { useCart } from '../context/CartContext';
 
 
@@ -23,7 +24,7 @@ export default function ProductListScreen() {
       const fetchProducts = async () => {
       setLoading(true);
       try {
-        const response = await fetch('http://192.168.20.181:2909/products/getProduct?company=1');
+        const response = await fetch(`${API_URL}/products/getProduct?company=1`);
         const json = await response.json();
 
         if (json.code === '0000') {

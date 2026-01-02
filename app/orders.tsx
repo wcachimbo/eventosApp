@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { API_URL } from "../constants/Config";
 import { useCart } from '../context/CartContext';
 
 /* 📦 TIPOS DE DATOS */
@@ -68,7 +69,7 @@ export default function OrdersScreen() {
             onPress={() => cart.length > 0 ? router.navigate('/cart') : Alert.alert("Carrito Vacío", "Debes seleccionar productos.")}
           >
             <View style={{ padding: 6 }}>
-              <Text style={{ fontSize: 22 }}>🛒</Text>
+              <Ionicons name="cart-outline" size={28} color="#ecf0f1" />
               {cart.length > 0 && (
                 <View style={{
                   position: 'absolute', top: 0, right: 0, backgroundColor: 'red', borderRadius: 9,
@@ -91,7 +92,7 @@ export default function OrdersScreen() {
     try {
       // Usamos la IP local consistente con los otros archivos
       // Agregamos timestamp para evitar caché y forzar datos frescos
-      const response = await fetch(`http://192.168.20.181:2909/orden/getOrdenPending?company=1&_t=${Date.now()}`);
+      const response = await fetch(`${API_URL}/orden/getOrdenPending?company=1&_t=${Date.now()}`);
       const json = await response.json();
 
       if (json.code === '0000') {
@@ -168,7 +169,7 @@ export default function OrdersScreen() {
               setLoading(true);
               try {
                 // 1. Obtener catálogo para sacar las IMÁGENES
-                const prodResponse = await fetch('http://192.168.20.181:2909/products/getProduct?company=1');
+                const prodResponse = await fetch(`${API_URL}/products/getProduct?company=1`);
                 const prodJson = await prodResponse.json();
                 let imageMap: Record<number, string> = {};
 
@@ -250,7 +251,7 @@ export default function OrdersScreen() {
     const newStatus = statusMap[action];
 
     try {
-      const response = await fetch('http://192.168.20.181:2909/orden/updateStatus', {
+      const response = await fetch(`${API_URL}/orden/updateStatus`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

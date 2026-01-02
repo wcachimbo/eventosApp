@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { API_URL } from "../constants/Config";
+import { useCart } from '../context/CartContext';
 
 /* 📦 TIPOS DE DATOS */
 type Product = {
@@ -35,15 +37,55 @@ type CollectOrder = {
 };
 
 export default function CollectScreen() {
+  const navigation = useNavigation();
+  const { cart } = useCart();
   const [orders, setOrders] = useState<CollectOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
+
+  /* 🏠 HEADER CONFIG (Home -> Carrito -> Pedidos) */
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* 1. HOME */}
+          <TouchableOpacity onPress={() => router.navigate('/')} style={{ marginRight: 20 }}>
+             <Ionicons name="home" size={24} color="#ecf0f1" />
+          </TouchableOpacity>
+
+          {/* 2. CARRITO */}
+          <TouchableOpacity 
+            onPress={() => cart.length > 0 ? router.navigate('/cart') : Alert.alert("Carrito Vacío", "Debes seleccionar productos.")}
+            style={{ marginRight: 20 }}
+          >
+            <View style={{ padding: 6 }}>
+              <Ionicons name="cart-outline" size={28} color="#ecf0f1" />
+              {cart.length > 0 && (
+                <View style={{
+                  position: 'absolute', top: 0, right: 0, backgroundColor: 'red', borderRadius: 9,
+                  minWidth: 18, height: 18, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center',
+                  elevation: 6, zIndex: 10
+                }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>{cart.length}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* 3. PEDIDOS */}
+          <TouchableOpacity onPress={() => router.navigate('/orders')} style={{ marginRight: 15 }}>
+             <Ionicons name="receipt-outline" size={24} color="#ecf0f1" />
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [navigation, cart]);
 
   /* 🔄 CARGAR PEDIDOS */
   const fetchCollectOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.20.181:2909/orden/getOrdenCollect?company=1');
+      const response = await fetch(`${API_URL}/orden/getOrdenCollect?company=1`);
       const json = await response.json();
 
       if (json.code === '0000') {
@@ -108,7 +150,7 @@ export default function CollectScreen() {
           onPress: async () => {
             setLoading(true);
             try {
-              const response = await fetch('http://192.168.20.181:2909/orden/updateStatus', {
+              const response = await fetch(`${API_URL}/orden/updateStatus`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
